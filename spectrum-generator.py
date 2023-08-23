@@ -1,5 +1,6 @@
-#!/Users/ds17094/miniconda3/bin/python
+#!/usr/bin/python
 # Script for plotting spectra based on a .dat file containing a list of vaules and heights.
+# Tested with Python 3.8.16
 
 import numpy as np
 
@@ -43,7 +44,7 @@ def write_file(filename,array):
    #    filename (str) : Output datafile containing spectrum
    #    array (np.Array) : The result of the spectrum generation, with intensity values at even intervals.
    
-   np.savetxt(filename,array)
+   np.savetxt(filename,array,fmt='%.2f %0.6f',delimiter='\t')
 
 def generate_spectrum(freq,intensity,pw):
     # Generates an IR spectrum for a set of frequencies and associated intensities 
