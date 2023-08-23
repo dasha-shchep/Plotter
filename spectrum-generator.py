@@ -56,6 +56,9 @@ def generate_spectrum(freq,intensity,pw):
 
     # Returns:
     #    spectrum (np.array) : a set of absorption intensities associated with x-axis values in spectrum_range
+    
+    if shift != 1.:
+        freq = list(map(lambda x: x * shift, freq))
 
     spectrum_range = np.arange(plot_range[0],plot_range[1],1.)
     spectrum_range = np.append(spectrum_range,freq)
