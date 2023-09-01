@@ -9,12 +9,19 @@ from math import pi
 
 def read_command_line_arguments():
     global infilename, outfilename, linewidth, shift, gauss, lorentz, plot_range
-    infilename = "tests/from_Avogadro_input_frequencies.dat"
-    outfilename = "tests/output.dat"
+    # Uses argparse library to read and assign 
+    parser = ArgumentParser(description="This script processes a set of frequencies and intensities to output an IR spectrum with broadened peaks.")
+    parser.add_argument('input_filename', type=str)
+    parser.add_argument('output_filename', type=str)
+    args = parser.parse_args()
+    infilename = args.input_filename
+    outfilename = args.output_filename
+    # infilename = "tests/from_Avogadro_input_frequencies.dat"
+    # outfilename = "tests/output.dat"
     linewidth = 10.
     shift = 1.
-    gauss = False
-    lorentz = True
+    gauss = True
+    lorentz = False
     plot_range = [0,3500]
 
 def read_file(filename) -> [list, list]:
@@ -64,11 +71,20 @@ def generate_spectrum(freq,intensity,pw):
     spectrum_range = np.append(spectrum_range,freq)
     spectrum_range.sort()
     spectrum = np.zeros(len(spectrum_range))
-    for freq,intensity in zip(freq,intensity):
-        min_peak = freq - 20.*pw
-        max_peak = freq + 20.*pw
-        one_peak = [0.0 if i < min_peak else 0.0 if i > max_peak else intensity*lorentzian(i,freq,pw) for i in spectrum_range]
-        spectrum += np.asarray(one_peak)
+    if lorentz and not gauss:
+        for freq,intensity in zip(freq,intensity):
+            min_peak = freq - 20.*pw
+            max_peak = freq + 20.*pw
+            one_peak = [0.0 if i < min_peak else 0.0 if i > max_peak else intensity*lorentzian(i,freq,pw) for i in spectrum_range]
+            spectrum += np.asarray(one_peak)
+    elif gauss and not lorentz:
+        for freq,intensity in zip(freq,intensity):
+            min_peak = freq - 20.*pw
+            max_peak = freq + 20.*pw
+            one_peak = [0.0 if i < min_peak else 0.0 if i > max_peak else intensity*gaussian(i,freq,pw) for i in spectrum_range]
+            spectrum += np.asarray(one_peak)
+    else:
+        raise ValueError("Please specify either Gaussian or Lorentzian broadening.")
 
     return np.column_stack((spectrum_range,spectrum))
 
@@ -80,7 +96,7 @@ def lorentzian(x, x0, tau : float) -> float :
     #    x0 (float) : centre of the lorenzian function
     #    tau (float) : parameter of lorenzian function broadening
 
-    return (1/pi)* tau / ((x - x0)**2 + (tau**2))
+    return (tau**2)/((x-x0)**2+(tau**2))
 
 def gaussian(x, x0, sigma : float) -> float :
     # Generates value of a Gaussian function centered at x0 with sigma at coordinate x.
