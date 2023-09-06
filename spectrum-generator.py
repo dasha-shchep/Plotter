@@ -5,24 +5,21 @@
 import numpy as np
 
 from argparse import ArgumentParser
-from math import pi
+# from math import pi
 
 def read_command_line_arguments():
-    global infilename, outfilename, linewidth, shift, gauss, lorentz, plot_range
     # Uses argparse library to read and assign 
     parser = ArgumentParser(description="This script processes a set of frequencies and intensities to output an IR spectrum with broadened peaks.")
-    parser.add_argument('input_filename', type=str)
-    parser.add_argument('output_filename', type=str)
-    args = parser.parse_args()
-    infilename = args.input_filename
-    outfilename = args.output_filename
-    # infilename = "tests/from_Avogadro_input_frequencies.dat"
-    # outfilename = "tests/output.dat"
-    linewidth = 10.
-    shift = 1.
-    gauss = True
-    lorentz = False
-    plot_range = [0,3500]
+    parser.add_argument('input_filename', type=str, help="File containing a set of IR frequencies (in cm^-1) and corresponding intensities")
+    parser.add_argument('output_filename', type=str, help="File where the spectrum is written")
+    parser.add_argument("-lw", "--linewidth", type=float, default=5.,help="Gaussian/Lorentzian broadening parameter. Defalut: 5.")
+    parser.add_argument("-s", "--shift", type=float, default=1.,help="Scaling factor applied to the spectrum. Default: 1.")
+    parser.add_argument("-r", "--range", type=list, default=[0,3500],help="Range of values over which the output spectrum is plotted. Default: [0,3500]")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-G", "--gaussian", action="store_true", help="Use Gaussian peak broadening.")
+    group.add_argument("-L", "--lorentzian", action="store_true", help="Use Lorentzian peak broadening. This is the default setting.")
+    arguments = parser.parse_args()
+    return arguments
 
 def read_file(filename) -> [list, list]:
     #Parses the file containing two columns of numerical data
@@ -67,24 +64,23 @@ def generate_spectrum(freq,intensity,pw):
     if shift != 1.:
         freq = list(map(lambda x: x * shift, freq))
 
-    spectrum_range = np.arange(plot_range[0],plot_range[1],1.)
+    spectrum_range = np.arange(plot_range[0],plot_range[1],1.) # Resolution of output spectrum is set to 1. here, and can be altered.
     spectrum_range = np.append(spectrum_range,freq)
     spectrum_range.sort()
     spectrum = np.zeros(len(spectrum_range))
+
     if lorentz and not gauss:
-        for freq,intensity in zip(freq,intensity):
-            min_peak = freq - 20.*pw
-            max_peak = freq + 20.*pw
-            one_peak = [0.0 if i < min_peak else 0.0 if i > max_peak else intensity*lorentzian(i,freq,pw) for i in spectrum_range]
-            spectrum += np.asarray(one_peak)
+        broadening_kernel = lorentzian
     elif gauss and not lorentz:
-        for freq,intensity in zip(freq,intensity):
-            min_peak = freq - 20.*pw
-            max_peak = freq + 20.*pw
-            one_peak = [0.0 if i < min_peak else 0.0 if i > max_peak else intensity*gaussian(i,freq,pw) for i in spectrum_range]
-            spectrum += np.asarray(one_peak)
+        broadening_kernel = gaussian
     else:
         raise ValueError("Please specify either Gaussian or Lorentzian broadening.")
+    
+    for freq,intensity in zip(freq,intensity):
+        min_peak = freq - 20.*pw # The 20 can be changed if the spectrum starts 
+        max_peak = freq + 20.*pw
+        one_peak = [0.0 if i < min_peak else 0.0 if i > max_peak else intensity*broadening_kernel(i,freq,pw) for i in spectrum_range]
+        spectrum += np.asarray(one_peak)
 
     return np.column_stack((spectrum_range,spectrum))
 
@@ -109,7 +105,16 @@ def gaussian(x, x0, sigma : float) -> float :
     return np.exp(-np.power((x - x0)/sigma, 2.)/2.)
 
 if __name__ == "__main__":
-    read_command_line_arguments()
+    args = read_command_line_arguments()
+
+    infilename = args.input_filename
+    outfilename = args.output_filename
+    linewidth = args.linewidth
+    shift = args.shift
+    gauss = args.gaussian
+    lorentz = args.lorentzian
+    plot_range = args.range
+
     xval, yval = read_file(infilename)
     spectrum = generate_spectrum(xval,yval,linewidth)
     write_file(outfilename,spectrum)
